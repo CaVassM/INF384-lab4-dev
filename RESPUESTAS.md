@@ -194,3 +194,13 @@ Decisión sobre sast (se queda / se mueve a otra etapa o evento / informativo) y
 
 ## Declaración de uso de IA
 Herramientas usadas y para qué:
+
+Usé dos herramientas de IA de Anthropic.
+
+Claude (chat). Lo usé para diagnosticar con él los errores que me salían en las ejecuciones, enviándole capturas de pantalla de cada una. Con él identifiqué los cinco defectos de la Parte 1. También escribí con él los prompts que después le di a Claude Code, y le pedí borradores cortos de lo que quería decir, que luego le pasé a Claude Code para que los formalizara y los ordenara.
+
+Claude Code. Lo usé para ejecutar los pasos en el repositorio: correr los comandos, leer las duraciones y los logs de los runs de GitHub Actions (Partes 1, 2 y 3), crear la rama del defecto con su pull request y el pull request de evidencia de load, aplicar los cambios de la Parte 3 (carga de k6, tests e2e, SLO_P95) y redactar y ordenar el texto de RESPUESTAS.md.
+
+Las decisiones fueron mías en todos los casos: apliqué yo las correcciones de los cinco defectos en mis commits, y también decidí qué pedirle a la IA en cada paso, qué cambios aplicar para bajar el tiempo, dejar sast donde está y el riesgo aceptado. Claude Code calculó el valor del SLO con la regla que le indiqué (1,5 veces el p95 medido, redondeado).
+
+Los números del documento (horas, duraciones, resultados de k6 y de Trivy) salen de los runs y los logs que Claude Code consultó. Las pruebas locales de los defectos 3 y 4 las corrió Claude Code en su propio entorno (Linux, Node 22), no en mi máquina.
