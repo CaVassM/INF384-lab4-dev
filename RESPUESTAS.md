@@ -1,6 +1,6 @@
 # Respuestas · Laboratorio 4
-Alumno: [código]
-Presupuesto: [ ] min  Métrica DORA: [ ]
+Alumno: 20202583
+Presupuesto: 11 min  Métrica DORA: time to restore
 
 ## Parte 1 · Diagnóstico
 Nota sobre las horas: los fragmentos de log están en UTC; la hora Lima (UTC−5) se indica entre paréntesis o como "Lima". Todos los runs son del 29/10/2026, posteriores a las 16:00 Lima. Los 5 commits se subieron por separado a main, así que cada uno disparó su propio run; el run 1 (workflow_dispatch) es el único anterior a todos los fixes.
@@ -127,14 +127,20 @@ Nota sobre las horas: los fragmentos de log están en UTC; la hora Lima (UTC−5
   - Run 1 (anterior a los fixes), job load: 21:14:00Z a 21:26:13Z (16:14:00 a 16:26:13 Lima) = 12:13 (min:seg); el paso k6 duró 12:01. Link: https://github.com/CaVassM/INF384-lab4-dev/actions/runs/40955729455/job/123736157445
   - Run 2, job load: 21:25:57Z a 21:38:07Z = 12:10. Link: https://github.com/CaVassM/INF384-lab4-dev/actions/runs/40957503675/job/123742130877
   - Antes del fix, `git show 79363b1~1:.github/workflows/ci.yml` muestra `on: pull_request:` en la línea 4 y el job `load:` en la línea 306 sin ninguna condición `if`.
-  - Efecto de la corrección: en el run del PR de la Parte 2, load aparece como skipped [PENDIENTE: link al run del PR]
+  - Efecto de la corrección: en el run del PR de la Parte 2, load aparece como skipped (https://github.com/CaVassM/INF384-lab4-dev/actions/runs/40962981849), pero ahí se salta porque unit falla antes. Para tener una prueba limpia abrí otro PR con un comentario inofensivo en test/smoke/smoke.sh (https://github.com/CaVassM/INF384-lab4-dev/pull/2). En su run smoke y e2e terminaron en success y load quedó skipped por la condición del job (https://github.com/CaVassM/INF384-lab4-dev/actions/runs/40963249383, job load: https://github.com/CaVassM/INF384-lab4-dev/actions/runs/40963249383/job/123761960628).
 
 ## Parte 2 · Implementación
-- Link al run en verde en main:
-- Link al pull request:
-- Defecto de la aplicación introducido (archivo y descripción):
-- Job que debería detenerlo:
-- Link al run fallido:
+- Link al run en verde en main: https://github.com/CaVassM/INF384-lab4-dev/actions/runs/40960297837. Es el run del push de 6add4fa en main. Sus 9 jobs terminaron en success a las 17:03 hora Lima, y 6add4fa tiene en su historial los cinco commits de la Parte 1 (lo comprobé con git).
+- Link al pull request: https://github.com/CaVassM/INF384-lab4-dev/pull/1. Está abierto contra main de mi fork y no hice merge, así que el defecto no llegó a main.
+- Defecto de la aplicación introducido (archivo y descripción): en src/wallet.js, dentro de transferir, borré el if que comparaba origen con destino y lanzaba ErrorNegocio con 422. Sin ese if, la API ya no rechaza una transferencia de un usuario a sí mismo. El commit de la rama defecto-mismo-usuario es 06dd394.
+- Job que debería detenerlo: unit. Es el que está más cerca de la lógica, es el más rápido, no necesita base de datos ni despliegue y corta el defecto antes de construir la imagen.
+- Link al run fallido: https://github.com/CaVassM/INF384-lab4-dev/actions/runs/40962981849. El job unit quedó en rojo (https://github.com/CaVassM/INF384-lab4-dev/actions/runs/40962981849/job/123760255520) por el test que protege justo esa validación. Integration también falló, y build-push, deploy, smoke, e2e y load quedaron skipped.
+  ```
+  not ok 24 - transferir al mismo usuario es 422
+    error: 'Missing expected exception.'
+  # pass 27
+  # fail 1
+  ```
 
 ## Parte 3 · Decisión bajo restricción
 Link al run medido:
