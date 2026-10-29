@@ -143,46 +143,54 @@ Nota sobre las horas: los fragmentos de log están en UTC; la hora Lima (UTC−5
   ```
 
 ## Parte 3 · Decisión bajo restricción
-Link al run medido:
+Link al run medido: https://github.com/CaVassM/INF384-lab4-dev/actions/runs/40960297837 (el run en verde de la Parte 2.1, commit 6add4fa). Cada duración es la hora de fin menos la hora de inicio del job.
 
 | Job | Duración (min:seg) |
 |---|---|
-| unit | |
-| integration | |
-| sast | |
-| sca | |
-| build-push | |
-| deploy | |
-| smoke | |
-| e2e | |
-| load | |
-| **Total** | |
+| unit | 0:10 |
+| integration | 0:13 |
+| sast | 0:23 |
+| sca | 0:15 |
+| build-push | 0:46 |
+| deploy | 0:17 |
+| smoke | 0:10 |
+| e2e | 0:42 |
+| load | 12:11 |
+| **Total** | 15:07 |
 
 Resultado de load en ese run:
 | Métrica | Valor |
 |---|---|
-| p90 | |
-| p95 | |
-| Máximo | |
-| Tasa de error | |
-| Requests por segundo | |
+| p90 | 82,85 ms |
+| p95 | 84,86 ms |
+| Máximo | 302,97 ms |
+| Tasa de error | 0,00 % (0 de 34258 requests) |
+| Requests por segundo | 47,52 (34258 requests en 12m01s) |
 
-Conclusión sobre el comportamiento bajo carga:
+Conclusión sobre el comportamiento bajo carga: con 30 usuarios virtuales la latencia fue estable: p90 de 82,85 ms, p95 de 84,86 ms y ningún error en 34258 requests. El máximo de 302,97 ms es unas 3,6 veces el p95, así que lo leo como un pico aislado y no como una tendencia. En los runs 1 y 2 de hoy el máximo llegó a 1,13 s y 845 ms, y esos dos runs se solaparon con el deploy de otro run sobre la misma Lambda, como pasaba antes del Defecto 2.
 
-SLO propuesto (percentil, valor, ventana) y justificación:
+SLO propuesto (percentil, valor, ventana) y justificación: p95 de http_req_duration menor a 130 ms, medido en una ventana de 30 días. Hoy medí un p95 de 83,07 ms en el run 1, 53,54 ms en el run 2, 84,86 ms en el run 6 y 53,68 ms en el run final, así que el peor valor es 84,86 ms. Lo multipliqué por 1,5 (unos 127 ms) y lo redondeé a 130 ms para que load no falle por la variación normal entre runs. Ya está configurado en SLO_P95 de ci.yml (https://github.com/CaVassM/INF384-lab4-dev/commit/884924531aabd58ac8a1f255f8692ceb771c9875).
 
-SLA propuesto y diferencia con el SLO:
+SLA propuesto y diferencia con el SLO: p95 menor a 300 ms por mes calendario. Si un mes no se cumple, el cliente recibe un crédito del 10 % en la factura de ese mes. El SLO es la meta interna y el SLA es lo que le prometo al cliente, por eso el SLA es más holgado: 300 ms es unas 3,5 veces el p95 medido, mientras que el SLO está solo 1,5 veces por encima. Si la latencia se degrada, primero se pone en rojo load por el SLO, y eso me da tiempo para restaurar antes de romper el compromiso con el cliente.
 
 Cambios para cumplir el presupuesto:
 | Cambio | Job | Minutos recuperados |
 |---|---|---|
+| Carga constante de 4 minutos y rampas de 10 s en k6 (antes 1m + 10m + 1m) | load | 7:40 (de 12:11 a 4:31) |
+| Tests e2e por HTTP con el fixture request y sin instalar Chromium | e2e | 0:27 (de 0:42 a 0:15) |
 
-Total resultante: [ ] min
-Link al run en main con los cambios:
+Los demás jobs cambiaron unos segundos entre un run y otro sin que yo tocara nada, y esas variaciones suman 1 s. Por eso la diferencia total (8:08) no coincide exacto con la suma de la tabla (8:07). No hizo falta el cambio de sast.
 
-Riesgo aceptado (defecto de la aplicación concreto y efecto en la métrica DORA asignada):
+Total resultante: 6:59 min (419 s, suma de los 9 jobs; antes 15:07)
+Link al run en main con los cambios: https://github.com/CaVassM/INF384-lab4-dev/actions/runs/40965175835. Está en verde y load evaluó el SLO nuevo:
+```
+✓ 'p(95)<130' p(95)=53.68ms
+running (4m20.6s), 00/30 VUs, 6863 complete and 0 interrupted iterations
+```
 
-Decisión sobre sast (se queda / se mueve a otra etapa o evento / informativo) y razón:
+Riesgo aceptado (defecto concreto de la aplicación y efecto en la métrica DORA asignada): una regresión de rendimiento en /transferir que solo aparece con carga sostenida, por ejemplo una consulta que recorre todos los movimientos anteriores y se vuelve más lenta a medida que la tabla crece. Con 4 minutos de carga en lugar de 10 pasan 6863 iteraciones en vez de 17129 (en cada una hay una transferencia), así que la tabla crece unas 2,5 veces menos y puede que el p95 no llegue a pasar de 130 ms. Además load ya no corre en los pull requests, de modo que ese defecto se vería recién en main, cuando el cambio ya está integrado. Esto baja el time to restore: cada fix o rollback ahora pasa por un pipeline de 6:59 en lugar de 15:07, así que restaurar el servicio toma menos tiempo. El costo es que más regresiones de rendimiento pueden llegar a main antes de que las detecte.
+
+Decisión sobre sast (se queda / se mueve a otra etapa o evento / informativo) y razón: se queda en pre-build y en todos los eventos. Cuesta 0:23 en el run base y 0:19 en el run final, o sea el 4,5 % de los 6:59 actuales. Corre en paralelo con unit, integration y sca, así que casi no alarga el tiempo que tarda un hotfix en llegar a producción. En el run final sast y sca terminaron a la misma hora (22:21:21Z), y en el run base sast fue solo 8 s más lento que sca, el siguiente. Por eso no empeora el time to restore. Si lo saco o lo dejo como informativo ahorro muy poco tiempo real y dejo pasar patrones inseguros a producción, lo que generaría incidentes que después habría que restaurar.
 
 ## Declaración de uso de IA
 Herramientas usadas y para qué:
