@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Verifica que la version desplegada responde antes de las pruebas de e2e.
 set -euo pipefail
 
 : "${BASE_URL:?BASE_URL no definida}"
